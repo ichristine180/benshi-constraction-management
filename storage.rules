@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Only authenticated users can read files
+    match /{allPaths=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Receipts - site manager and owner can upload
+    match /receipts/{fileName} {
+      allow write: if request.auth != null;
+    }
+
+    // Photos - all authenticated users can upload
+    match /photos/{fileName} {
+      allow write: if request.auth != null;
+    }
+
+    // Material receipts
+    match /material_receipts/{fileName} {
+      allow write: if request.auth != null;
+    }
+
+    // Funding attachments - owner only
+    match /funding/{fileName} {
+      allow write: if request.auth != null;
+    }
+  }
+}

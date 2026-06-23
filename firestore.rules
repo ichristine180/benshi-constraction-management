@@ -1,0 +1,126 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isOwner() {
+      return isAuthenticated() && getUserRole() == 'owner';
+    }
+
+    function isSiteManager() {
+      return isAuthenticated() && getUserRole() == 'site_manager';
+    }
+
+    function isSupervisor() {
+      return isAuthenticated() && getUserRole() == 'supervisor';
+    }
+
+    function isOwnerOrSiteManager() {
+      return isOwner() || isSiteManager();
+    }
+
+    // Users - Only owner can manage users
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isOwner());
+      allow create: if isOwner();
+      allow update: if isOwner() || request.auth.uid == userId;
+      allow delete: if isOwner();
+    }
+
+    // Funding Sources - Only owner
+    match /funding_sources/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner();
+    }
+
+    // Budget Categories - Owner manage, all read
+    match /budget_categories/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner();
+    }
+
+    // Construction Stages - Owner manage, all read
+    match /construction_stages/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner();
+    }
+
+    // Transactions - Owner approves, site manager creates
+    match /transactions/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwnerOrSiteManager();
+      allow update: if isOwner() ||
+        (isSiteManager() && resource.data.createdBy == request.auth.uid && resource.data.status == 'pending');
+      allow delete: if isOwner();
+    }
+
+    // Materials - Owner and site manager
+    match /materials/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwnerOrSiteManager();
+    }
+
+    // Material Transactions - Owner and site manager
+    match /material_transactions/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwnerOrSiteManager();
+      allow update: if isOwnerOrSiteManager();
+      allow delete: if isOwner();
+    }
+
+    // Workers - Owner and site manager manage, supervisor reads
+    match /workers/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwnerOrSiteManager();
+    }
+
+    // Attendance - All can record, owner/manager can update/delete
+    match /attendance/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isOwnerOrSiteManager() ||
+        (request.auth.uid == resource.data.recordedBy);
+      allow delete: if isOwner();
+    }
+
+    // Worker Payments - Owner and site manager
+    match /worker_payments/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwnerOrSiteManager();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+
+    // Daily Logs - All can create and read, owner/manager update
+    match /daily_logs/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isOwnerOrSiteManager() ||
+        resource.data.createdBy == request.auth.uid;
+      allow delete: if isOwner();
+    }
+
+    // Photos - All can create and read
+    match /photos/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow delete: if isOwner();
+    }
+
+    // Notifications - Read by all authenticated, manage by system (owner)
+    match /notifications/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner();
+      allow update: if isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+    }
+  }
+}
