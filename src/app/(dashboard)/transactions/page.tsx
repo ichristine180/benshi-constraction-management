@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { PlusCircle, CheckCircle, XCircle } from 'lucide-react'
+import { PlusCircle, CheckCircle, XCircle, X } from 'lucide-react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -62,6 +62,8 @@ export default function TransactionsPage() {
   const [saving, setSaving] = useState(false)
   const [statusFilter, setStatusFilter] = useState<TransactionStatus | 'all'>('all')
   const [search, setSearch] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -77,8 +79,14 @@ export default function TransactionsPage() {
   const filtered = transactions.filter(t => {
     if (statusFilter !== 'all' && t.status !== statusFilter) return false
     if (search && !t.description.toLowerCase().includes(search.toLowerCase()) && !t.category.toLowerCase().includes(search.toLowerCase())) return false
+    const txDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date)
+    if (dateFrom && txDate < new Date(dateFrom)) return false
+    if (dateTo && txDate > new Date(dateTo + 'T23:59:59')) return false
     return true
   })
+
+  const hasDateFilter = dateFrom || dateTo
+  const clearDates = () => { setDateFrom(''); setDateTo('') }
 
   const totalAmount = filtered.filter(t => t.status === 'approved').reduce((s, t) => s + t.amount, 0)
 
@@ -133,13 +141,41 @@ export default function TransactionsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Input
-          placeholder={useKinyarwanda ? rw.common.search : 'Search transactions...'}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="max-w-xs"
-        />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Input
+            placeholder={useKinyarwanda ? rw.common.search : 'Search transactions...'}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="max-w-xs"
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-gray-500 whitespace-nowrap">{useKinyarwanda ? 'Itariki:' : 'Date:'}</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <span className="text-sm text-gray-400">—</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              min={dateFrom}
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            {hasDateFilter && (
+              <button
+                onClick={clearDates}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <X className="h-3 w-3" />
+                {useKinyarwanda ? 'Siba' : 'Clear'}
+              </button>
+            )}
+          </div>
+        </div>
         <div className="flex gap-2 flex-wrap">
           {(['all', 'pending', 'approved', 'rejected'] as const).map(s => (
             <button
