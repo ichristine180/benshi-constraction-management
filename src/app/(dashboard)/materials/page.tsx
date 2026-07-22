@@ -112,12 +112,12 @@ export default function MaterialsPage() {
         transactionType: txType,
         quantity: qty,
         unitPrice,
-        totalCost: txType === 'purchase' ? qty * unitPrice : undefined,
-        stage: txType === 'usage' ? txForm.stage : undefined,
-        supplier: txType === 'purchase' ? txForm.supplier : undefined,
         notes: txForm.notes,
         date: Timestamp.fromDate(new Date(txForm.date)),
         createdBy: userProfile?.id || '',
+        ...(txType === 'purchase' && { totalCost: qty * unitPrice }),
+        ...(txType === 'purchase' && txForm.supplier && { supplier: txForm.supplier }),
+        ...(txType === 'usage' && txForm.stage && { stage: txForm.stage }),
       }
 
       await addDocument<MaterialTransaction>(COLLECTIONS.MATERIAL_TRANSACTIONS, txData)
